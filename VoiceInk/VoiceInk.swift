@@ -393,6 +393,12 @@ class UpdaterViewModel: ObservableObject {
     @Published var automaticallyChecksForUpdates = false
 
     init() {
+        #if LOCAL_BUILD
+        // SUFeedURL points at upstream's appcast, so an accepted update would
+        // replace a local fork build with stock VoiceInk. Never start Sparkle;
+        // canCheckForUpdates stays false, keeping the update UI disabled.
+        updaterController = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: nil, userDriverDelegate: nil)
+        #else
         updaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
 
         automaticallyChecksForUpdates = updaterController.updater.automaticallyChecksForUpdates
@@ -402,15 +408,20 @@ class UpdaterViewModel: ObservableObject {
 
         updaterController.updater.publisher(for: \.automaticallyChecksForUpdates)
             .assign(to: &$automaticallyChecksForUpdates)
+        #endif
     }
 
     func setAutomaticallyChecksForUpdates(_ value: Bool) {
+        #if !LOCAL_BUILD
         updaterController.updater.automaticallyChecksForUpdates = value
+        #endif
     }
 
     func checkForUpdates() {
+        #if !LOCAL_BUILD
         // This is for manual checks - will show UI
         updaterController.checkForUpdates(nil)
+        #endif
     }
 }
 
