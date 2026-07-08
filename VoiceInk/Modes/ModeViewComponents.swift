@@ -334,7 +334,7 @@ struct ConfigurationRow: View {
                         )
                     }
 
-                    if config.outputMode == .paste && config.autoSendKey.isEnabled {
+                    if config.outputMode.usesPasteOptions && config.autoSendKey.isEnabled {
                         HStack(spacing: 4) {
                             Image(systemName: "keyboard")
                                 .font(.system(size: 10))

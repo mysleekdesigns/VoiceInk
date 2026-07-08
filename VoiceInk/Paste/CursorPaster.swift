@@ -213,6 +213,67 @@ class CursorPaster {
         try? await Task.sleep(nanoseconds: nanoseconds)
     }
 
+    // MARK: - Type-out (per-character CGEvent) injection
+
+    // Terminal TUIs corrupt clipboard paste (bracketed-paste wrapping), so this path types
+    // the text character by character and never touches the pasteboard.
+    private static let defaultTypeOutCharacterDelay: TimeInterval = 0.005
+    private static let maximumTypeOutCharacterDelay: TimeInterval = 0.1
+
+    @MainActor
+    @discardableResult
+    static func startTypeOutAtCursor(_ text: String) -> Task<PasteResult, Never> {
+        Task { @MainActor in
+            await typeOut(text)
+        }
+    }
+
+    @MainActor
+    private static func typeOut(_ text: String) async -> PasteResult {
+        guard AXIsProcessTrusted() else {
+            logger.error("Accessibility permission is required to type text with simulated key events")
+            return .commandNotPosted
+        }
+
+        // Return submits the prompt in terminal TUIs — the premature-Enter risk this mode
+        // exists to avoid — so newlines are typed as spaces rather than Return key presses.
+        let sanitizedText = text
+            .replacingOccurrences(of: "\r\n", with: " ")
+            .replacingOccurrences(of: "\r", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
+
+        let source = CGEventSource(stateID: .privateState)
+        let configuredDelay = UserDefaults.standard.double(forKey: "typeOutCharacterDelay")
+        let characterDelay = configuredDelay > 0
+            ? min(configuredDelay, maximumTypeOutCharacterDelay)
+            : defaultTypeOutCharacterDelay
+
+        for character in sanitizedText {
+            guard !Task.isCancelled else { return .commandNotPosted }
+
+            guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: true),
+                  let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0, keyDown: false) else {
+                logger.error("Failed to create type-out keyboard events")
+                return .commandNotPosted
+            }
+
+            let utf16Units = Array(String(character).utf16)
+            keyDown.keyboardSetUnicodeString(stringLength: utf16Units.count, unicodeString: utf16Units)
+            keyUp.keyboardSetUnicodeString(stringLength: utf16Units.count, unicodeString: utf16Units)
+
+            // Physically held modifiers (e.g. the push-to-talk hotkey) must not combine with
+            // typed characters — Ctrl/Cmd+char are control sequences in a terminal.
+            keyDown.flags = []
+            keyUp.flags = []
+
+            keyDown.post(tap: .cghidEventTap)
+            keyUp.post(tap: .cghidEventTap)
+            await wait(characterDelay)
+        }
+
+        return .commandPosted
+    }
+
     // MARK: - Auto Send Keys
 
     static func performAutoSend(_ key: AutoSendKey) {
