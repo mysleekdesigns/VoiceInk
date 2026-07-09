@@ -12,6 +12,7 @@ final class TranscriptionDelivery {
         let responseConfig: EnhancementRuntimeConfiguration?
         let responseError: String?
         let isAssistantFollowUp: Bool
+        let sendItTriggered: Bool
     }
 
     struct Actions {
@@ -45,7 +46,7 @@ final class TranscriptionDelivery {
         }
 
         if let text = request.text {
-            await paste(text, output: request.output, actions: actions)
+            await paste(text, output: request.output, sendItTriggered: request.sendItTriggered, actions: actions)
         } else {
             await actions.dismiss()
         }
@@ -147,18 +148,34 @@ final class TranscriptionDelivery {
         String(format: "%.3f", duration)
     }
 
-    private func paste(_ text: String, output: OutputRuntimeConfiguration, actions: Actions) async {
+    private func paste(_ text: String, output: OutputRuntimeConfiguration, sendItTriggered: Bool, actions: Actions) async {
         let textToPaste = deliverableText(from: text)
         let appendSpace = UserDefaults.standard.bool(forKey: "AppendTrailingSpace")
-        let pastedText = textToPaste + (appendSpace ? " " : "")
+        let pastedText = textToPaste.isEmpty ? textToPaste : textToPaste + (appendSpace ? " " : "")
         SoundManager.shared.playStopSound()
         await actions.dismiss()
+
+        var autoSendKey = output.outputMode.usesPasteOptions ? output.autoSendKey : .none
+        if sendItTriggered, output.outputMode.usesPasteOptions, !autoSendKey.isEnabled {
+            autoSendKey = .enter
+        }
+
+        if pastedText.isEmpty {
+            // Bare "send it": nothing to inject — press the key without touching
+            // the clipboard or posting an empty paste/type-out.
+            if autoSendKey.isEnabled {
+                Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    CursorPaster.performAutoSend(autoSendKey)
+                }
+            }
+            return
+        }
 
         let deliveryTask = output.outputMode == .typeOut
             ? CursorPaster.startTypeOutAtCursor(pastedText)
             : CursorPaster.startPasteAtCursor(pastedText)
 
-        let autoSendKey = output.outputMode.usesPasteOptions ? output.autoSendKey : .none
         Task { @MainActor in
             let deliveryResult = await deliveryTask.value
 

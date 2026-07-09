@@ -87,12 +87,13 @@ struct ModeConfig: Codable, Identifiable, Equatable {
     var selectedAIModel: String?
     var outputMode: ModeOutputMode = .paste
     var autoSendKey: AutoSendKey = .none
+    var isSendItCommandEnabled: Bool = false
     var customCommand: ModeCustomCommand?
     var isEnabled: Bool = true
     var isDefault: Bool = false
 
     enum CodingKeys: String, CodingKey {
-        case id, name, icon, appConfigs, urlConfigs, triggerGroups, triggerWords, isAIEnhancementEnabled, selectedPrompt, isRealtimeTranscriptionEnabled, selectedLanguage, isTextFormattingEnabled, useClipboardContext, useSelectedTextContext, useScreenCapture, selectedAIProvider, selectedAIModel, outputMode, isAutoSendEnabled, autoSendKey, customCommand, isEnabled, isDefault
+        case id, name, icon, appConfigs, urlConfigs, triggerGroups, triggerWords, isAIEnhancementEnabled, selectedPrompt, isRealtimeTranscriptionEnabled, selectedLanguage, isTextFormattingEnabled, useClipboardContext, useSelectedTextContext, useScreenCapture, selectedAIProvider, selectedAIModel, outputMode, isAutoSendEnabled, autoSendKey, isSendItCommandEnabled, customCommand, isEnabled, isDefault
         case legacyEmoji = "emoji"
         case selectedWhisperModel
         case selectedTranscriptionModelName
@@ -102,7 +103,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
          urlConfigs: [URLConfig]? = nil, triggerGroups: [ModeTriggerGroup]? = nil, triggerWords: [String] = [],
          isAIEnhancementEnabled: Bool, selectedPrompt: String? = nil,
          selectedTranscriptionModelName: String? = nil, isRealtimeTranscriptionEnabled: Bool = true, selectedLanguage: String? = nil, useClipboardContext: Bool = false, useSelectedTextContext: Bool = true, useScreenCapture: Bool = false,
-         isTextFormattingEnabled: Bool = false, selectedAIProvider: String? = nil, selectedAIModel: String? = nil, outputMode: ModeOutputMode = .paste, autoSendKey: AutoSendKey = .none, customCommand: ModeCustomCommand? = nil, isEnabled: Bool = true, isDefault: Bool = false) {
+         isTextFormattingEnabled: Bool = false, selectedAIProvider: String? = nil, selectedAIModel: String? = nil, outputMode: ModeOutputMode = .paste, autoSendKey: AutoSendKey = .none, isSendItCommandEnabled: Bool = false, customCommand: ModeCustomCommand? = nil, isEnabled: Bool = true, isDefault: Bool = false) {
         self.id = id
         self.name = name
         self.icon = icon
@@ -116,6 +117,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         self.useSelectedTextContext = useSelectedTextContext
         self.useScreenCapture = useScreenCapture
         self.autoSendKey = autoSendKey
+        self.isSendItCommandEnabled = isSendItCommandEnabled
         self.outputMode = outputMode
         self.customCommand = customCommand
         self.selectedAIProvider = selectedAIProvider
@@ -182,6 +184,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         } else {
             autoSendKey = .none
         }
+        isSendItCommandEnabled = try container.decodeIfPresent(Bool.self, forKey: .isSendItCommandEnabled) ?? false
         isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
         isDefault = try container.decodeIfPresent(Bool.self, forKey: .isDefault) ?? false
 
@@ -215,6 +218,7 @@ struct ModeConfig: Codable, Identifiable, Equatable {
         try container.encodeIfPresent(selectedAIModel, forKey: .selectedAIModel)
         try container.encode(outputMode, forKey: .outputMode)
         try container.encode(autoSendKey, forKey: .autoSendKey)
+        try container.encode(isSendItCommandEnabled, forKey: .isSendItCommandEnabled)
         try container.encodeIfPresent(customCommand, forKey: .customCommand)
         try container.encodeIfPresent(selectedTranscriptionModelName, forKey: .selectedTranscriptionModelName)
         try container.encode(isEnabled, forKey: .isEnabled)

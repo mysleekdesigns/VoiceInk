@@ -70,6 +70,7 @@ class TranscriptionPipeline {
         var responseError: String?
         var outputForDelivery: OutputRuntimeConfiguration?
         var responseConfig: EnhancementRuntimeConfiguration?
+        var sendItTriggered = false
 
         func finishCanceledTranscription() async {
             await onCancel()
@@ -138,6 +139,16 @@ class TranscriptionPipeline {
             }
 
             text = WordReplacementService.shared.applyReplacements(to: text, using: modelContext)
+
+            // "Send it" command word: strip the trailing phrase before enhancement so the
+            // cleanup LLM never sees it and the saved transcription stays clean.
+            if !assistant.isFollowUp,
+               resolvedOutputConfiguration.outputMode.usesPasteOptions,
+               resolvedOutputConfiguration.mode?.isSendItCommandEnabled == true {
+                let detection = SendItCommandDetector.detect(in: text)
+                text = detection.text
+                sendItTriggered = detection.triggered
+            }
             let cleanedText = text
 
             let actualDuration = await AudioFileMetadata.duration(for: audioURL)
@@ -264,7 +275,8 @@ class TranscriptionPipeline {
                 output: outputForDelivery ?? outputConfiguration(),
                 responseConfig: responseConfig,
                 responseError: responseError,
-                isAssistantFollowUp: assistant.isFollowUp
+                isAssistantFollowUp: assistant.isFollowUp,
+                sendItTriggered: sendItTriggered
             ),
             actions: TranscriptionDelivery.Actions(
                 setState: onStateChange,

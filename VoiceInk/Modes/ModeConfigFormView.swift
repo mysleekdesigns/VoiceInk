@@ -540,6 +540,13 @@ struct ModeConfigFormView: View {
                         InfoTip("Automatically presses a key combination after pasting text. Useful for chat applications or forms that use different send shortcuts.")
                     }
                 }
+
+                Toggle(isOn: $draft.isSendItCommandEnabled) {
+                    HStack(spacing: 6) {
+                        Text("\"Send it\" command word")
+                        InfoTip("End a dictation with \"send it\" to press Return after the text is typed. Saying only \"send it\" presses Return without typing anything.")
+                    }
+                }
             }
 
             if draft.outputMode == .customCommand {
